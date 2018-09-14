@@ -32,7 +32,7 @@ def avg_grid(grid, original_size, new_size):
     return data
 
 
-def gen_data(num_exm, new_size, total_grid_size=256, max_mole_dist=40, max_mole_size=30):
+def gen_data(num_exm, new_size, total_grid_size=256, max_mole_dist=32, max_mole_size=30):
     """
     generate data
     :param num_exm: number of exmaples
@@ -116,20 +116,23 @@ def padding(data, focus):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('-ntr', help='number of training examples', default=30000,
+    parser.add_argument('-ntr', help='number of training examples', default=50000,
                         dest='num_tr', type=int)
     parser.add_argument('-nv', help='number of validation examples', default=200,
                         dest='num_v', type=int)
     parser.add_argument('-nte', help='number of test examples', default=100,
                         dest='num_te', type=int)
-    parser.add_argument('-new', help='what size you want the data to be', default=64, dest='new_size', type=int)
+    parser.add_argument('-new', help='what size you want the data to be', default=16, 
+                        dest='new_size', type=int)
+    parser.add_argument('-f', help='focus size', default=8,
+                        dest='focus', type=int)
     args = parser.parse_args()
 
     total_grid_size = 256
-    focus = 8
+    focus = args.focus
 
     # seperate the train and test data
-    train_data = gen_data(args.num_tr, args.new_size, max_mole_size=30, max_mole_dist=32)
+    train_data = gen_data(args.num_tr, args.new_size)
     valid_data = gen_data(args.num_v, args.new_size)
     test_data = gen_data(args.num_te, args.new_size)
 
