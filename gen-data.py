@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 import h5py
 
@@ -8,7 +7,6 @@ This is the file which generates the data. The data contains the grid, the total
 energy, the ising model energy, the coulomb energy and the coordinates of the 
 center of the chemical molecules
 """
-plt.switch_backend('agg')
 
 def H(arr):
    #shift one to the right elements
