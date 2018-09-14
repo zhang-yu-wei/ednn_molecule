@@ -98,8 +98,8 @@ def build_model(L, f, c, train_data, train_labels, valid_data,
                                     )
                 train_writer.add_summary(summary1, epoch)
                 valid_writer.add_summary(summary2, epoch)
-                print "epoch: " + str(epoch) + ' | training loss: ' + str(loss_tra) \
-                      + ' | validation loss: ' + str(loss_val) + " (model saved)"
+                print("epoch: " + str(epoch) + ' | training loss: ' + str(loss_tra) \
+                      + ' | validation loss: ' + str(loss_val) + " (model saved)")
                 saver.save(sess, model_path)
 
 if __name__ == '__main__':
