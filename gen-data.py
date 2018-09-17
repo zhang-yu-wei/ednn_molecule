@@ -130,9 +130,9 @@ if __name__ == '__main__':
     focus = args.focus
 
     # seperate the train and test data
-    train_data = gen_data(args.num_tr, args.new_size)
-    valid_data = gen_data(args.num_v, args.new_size)
-    test_data = gen_data(args.num_te, args.new_size)
+    train_data = gen_data(args.num_tr)
+    valid_data = gen_data(args.num_v)
+    test_data = gen_data(args.num_te)
 
     path = args.save + '/train-data.hdf5'
     f1 = h5py.File(path, "w")
