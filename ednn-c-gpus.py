@@ -170,9 +170,9 @@ if __name__ == '__main__':
     f_c = args.f_c
     c_c = args.c_c
 
-    path = args.data + '/train-data' + '/data.hdf5'
+    path = args.data + '/train-data.hdf5'
     f1 = h5py.File(path, 'r')
-    path = args.data + '/valid-data' + '/data.hdf5'
+    path = args.data + '/valid-data.hdf5'
     f2 = h5py.File(path, 'r')
 
     # load data
