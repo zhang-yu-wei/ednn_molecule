@@ -134,7 +134,8 @@ if __name__ == '__main__':
     valid_data = gen_data(args.num_v, args.new_size)
     test_data = gen_data(args.num_te, args.new_size)
 
-    f1 = h5py.File("train-data2/data.hdf5", "w")
+    path = args.save + '/train-data.hdf5'
+    f1 = h5py.File(path, "w")
     f1['ori_data'] = train_data['grid']
     f1['avg_data'] = [padding(avg_grid(data, total_grid_size, args.new_size)
                             , focus) for data in train_data['grid']]
@@ -142,7 +143,8 @@ if __name__ == '__main__':
     f1['isenergy'] = train_data['isenergy']
     f1['elecenergy'] = train_data['elecenergy']
 
-    f2 = h5py.File("valid-data2/data.hdf5", "w")
+    path = args.save + '/valid-data.hdf5'
+    f2 = h5py.File(path, "w")
     f2['ori_data'] = valid_data['grid']
     f2['avg_data'] = [padding(avg_grid(data, total_grid_size, args.new_size)
                             , focus) for data in valid_data['grid']]
@@ -150,10 +152,12 @@ if __name__ == '__main__':
     f2['isenergy'] = valid_data['isenergy']
     f2['elecenergy'] = valid_data['elecenergy']
 
-    f3 = h5py.File("test-data2/data.hdf5", "w")
+    path = args.save + '/test-data.hdf5'
+    f3 = h5py.File(path, "w")
     f3['ori_data'] = test_data['grid']
     f3['avg_data'] = [padding(avg_grid(data, total_grid_size, args.new_size)
                             , focus) for data in test_data['grid']]
     f3['energy'] = test_data['energy']
     f3['isenergy'] = test_data['isenergy']
     f3['elecenergy'] = test_data['elecenergy']
+ 
