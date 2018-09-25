@@ -14,7 +14,7 @@ Use `gen-data.py` to generate data, this process will generate a __256*256__ gri
 
 Train
 -----
-Training process will be seperated into 2 parts. One is to calculate ising energy which is a local energy, the other one is to calculate the electric energy which represents the energy between molecules. And total energy is the total of the 2 parts. Use `ednn-c-gpus.py` to train coarse model. Use `ednn-f-gpus.py` to calculate finer model. Please use `-h` for more information about how to use them.
+Training process will be seperated into 2 parts. One is to calculate ising energy which is a local energy, the other one is to calculate the electric energy which represents the energy between molecules. And total energy is the total of the 2 parts. Use `ednn-c-gpus.py` to train coarse model. Use `ednn-f.py` to calculate finer model. Please use `-h` for more information about how to use them.
 
 Test
 ----
