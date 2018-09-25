@@ -8,18 +8,46 @@ import h5py
 import os
 import numpy as np
 import argparse
+from tensorflow.python.training.moving_averages import assign_moving_average
+
+
+def batch_norm(x, train, eps=1e-05, decay=0.9, affine=True, name=None):
+    with tf.variable_scope(name, default_name='BatchNorm2d'):
+        params_shape = tf.shape(x)[-1:]
+        moving_mean = tf.get_variable('mean', params_shape,
+                                      initializer=tf.zeros_initializer,
+                                      trainable=False)
+        moving_variance = tf.get_variable('variance', params_shape,
+                                          initializer=tf.ones_initializer,
+                                          trainable=False)
+
+        def mean_var_with_update():
+            mean, variance = tf.nn.moments(x, tf.shape(x)[:-1], name='moments')
+            with tf.control_dependencies([assign_moving_average(moving_mean, mean, decay),
+                                          assign_moving_average(moving_variance, variance, decay)]):
+                return tf.identity(mean), tf.identity(variance)
+        mean, variance = tf.cond(train, mean_var_with_update, lambda: (moving_mean, moving_variance))
+        if affine:
+            beta = tf.get_variable('beta', params_shape,
+                                   initializer=tf.zeros_initializer)
+            gamma = tf.get_variable('gamma', params_shape,
+                                    initializer=tf.ones_initializer)
+            x = tf.nn.batch_normalization(x, mean, variance, beta, gamma, eps)
+        else:
+            x = tf.nn.batch_normalization(x, mean, variance, None, None, eps)
+        return x
 
 
 def NN_coarse(_in):
     tile_size = f_c + 2*c_c
     # default is 576
     _in = tf.reshape(_in, (-1, tile_size**2))
-    nn = tf.contrib.layers.fully_connected(_in, 512, reuse=False, scope='ful1')
-    nn = tf.contrib.layers.fully_connected(nn, 256, reuse=False, scope='ful2')
+    nn = tf.contrib.layers.fully_connected(_in, 64, reuse=False, scope='ful1')
+    nn = tf.contrib.layers.fully_connected(_in, 128, reuse=False, scope='ful2')
     nn = tf.contrib.layers.fully_connected(nn, 128, reuse=False, scope='ful3')
-    nn = tf.contrib.layers.fully_connected(nn, 64, reuse=False, scope='ful4')
+    nn = tf.nn.dropout(nn, keep_prob=dropout, name='dp1')
     nn = tf.contrib.layers.fully_connected(nn, 1, activation_fn=None, reuse=False,
-                                           scope='ful5')
+                                           scope='ful4')
     return nn
 
 
@@ -41,9 +69,9 @@ def average_tower_grads( tower_grads):
 
 
 def build_model(L, f, c, train_data, train_labels,
-                valid_data, valid_labels,  save_dir, summary_dir,
+                valid_data, valid_labels,  save_dir, 
                 BATCH_SIZE=5000, EPOCHS=5000, report=10, num_gpus=2,
-                learning_rate=0.001, beta=0.001):
+                learning_rate=0.001):
     a = tf.Graph()
     with a.as_default():
       with tf.device("/cpu:0"):
@@ -68,7 +96,7 @@ def build_model(L, f, c, train_data, train_labels,
                       # define the loss function
                       vars = tf.trainable_variables()
                       lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in vars
-                                         if 'bias' not in v.name]) * beta
+                                         #if 'bias' not in v.name]) * beta
                       loss_ = tf.reduce_mean(tf.square(y[i] - predicted)) + lossL2
                       towerloss.append(loss_)
                       towerGrads.append(optimizer.compute_gradients(loss_))
@@ -84,10 +112,10 @@ def build_model(L, f, c, train_data, train_labels,
       sess = tf.InteractiveSession(config=config)
 
       # add loss in summary
-      tf.summary.scalar('loss', loss)
-      merged = tf.summary.merge_all()
-      train_writer = tf.summary.FileWriter(summary_dir + '/train', sess.graph)
-      valid_writer = tf.summary.FileWriter(summary_dir + '/valid')
+      #tf.summary.scalar('loss', loss)
+      #merged = tf.summary.merge_all()
+      #train_writer = tf.summary.FileWriter(summary_dir + '/train', sess.graph)
+      #valid_writer = tf.summary.FileWriter(summary_dir + '/valid')
 
       sess.run(tf.global_variables_initializer())
       saver = tf.train.Saver()
@@ -114,78 +142,81 @@ def build_model(L, f, c, train_data, train_labels,
                 train_feeds[y].append(train_labels[bunch*BUNCH_SIZE+
                     gpu*BATCH_SIZE:bunch*BUNCH_SIZE+(gpu+1)*BATCH_SIZE])
 
-            _, loss_tra, summary1 = sess.run([train_step, loss, merged], train_feeds)
+            _, loss_tra = sess.run([train_step, loss], train_feeds)
 
-            if epoch % report == 0:
-                # assign valid data feeds
-                valid_feeds = {}
-                valid_feeds[x] = []
-                valid_feeds[y] = []
-                for gpu in range(num_gpus):
-                    valid_feeds[x].append(valid_data[gpu*bunch_size_v:
-                                                     (gpu+1)*bunch_size_v])
-                    valid_feeds[y].append(valid_labels[gpu*bunch_size_v:
-                                                       (gpu+1)*bunch_size_v])
+        if epoch % report == 0:
+            # assign valid data feeds
+            valid_feeds = {}
+            valid_feeds[x] = []
+            valid_feeds[y] = []
+            for gpu in range(num_gpus):
+                valid_feeds[x].append(valid_data[gpu*bunch_size_v:
+                                                  (gpu+1)*bunch_size_v])
+                valid_feeds[y].append(valid_labels[gpu*bunch_size_v:
+                                                  (gpu+1)*bunch_size_v])
 
-                loss_val, summary2 = sess.run([loss, merged], valid_feeds)
+            loss_val, = sess.run([loss], valid_feeds)
 
-                train_writer.add_summary(summary1, epoch)
-                valid_writer.add_summary(summary2, epoch)
+            #train_writer.add_summary(summary1, epoch)
+            #valid_writer.add_summary(summary2, epoch)
 
-                print("epoch: " + str(epoch) + ' | training loss: ' + str(loss_tra) \
+            print("epoch: " + str(epoch) + ' | training loss: ' + str(loss_tra) \
                       + ' | validation loss: ' + str(loss_val) + " (model saved)")
 
-                saver.save(sess, model_path)
-                epochs.append(epoch)
-                losses_tra.append(loss_tra)
-                losses_val.append(loss_val)
+            saver.save(sess, model_path)
+            epochs.append(epoch)
+            losses_tra.append(loss_tra)
+            losses_val.append(loss_val)
     return epochs, losses_tra, losses_val
+
+
+def load_data(path):
+    open_path = path + '/avg.hdf5'
+    f1 = h5py.File(open_path, 'r')
+    open_path = path + '/energy.hdf5'
+    f2 = h5py.File(open_path, 'r')
+    return f1['avg_data'], np.reshape(f2['elec'], [-1, 1])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('save', help='save directory')
-    parser.add_argument('summary', help='summary saving directory')
     parser.add_argument('data', help='where you saved your data')
-    parser.add_argument('-L', help='data size', type=int,
+    parser.add_argument('-L', help='data size(default: 32)', type=int,
                         default=32, dest='L')
-    parser.add_argument('-f', help='focus size of coarse model',
+    parser.add_argument('-f', help='focus size of coarse model(default: 8)',
                         type=int, default=8, dest='f_c')
-    parser.add_argument('-c', help='context size of coarse model',
+    parser.add_argument('-c', help='context size of coarse model(default: 8)',
                         type=int, default=8, dest='c_c')
-    parser.add_argument('-e', help='number of epochs',
+    parser.add_argument('-e', help='number of epochs(default: 5000)',
                         type=int, default=5000, dest='EPOCHS')
-    parser.add_argument('-b', help='batch size',
+    parser.add_argument('-b', help='batch size(default: 5000)',
                         type=int, default=5000, dest='BATCH')
-    parser.add_argument('-r', help='report interval',
+    parser.add_argument('-r', help='report interval(default: 10)',
                         type=int, default=10, dest='report')
-    parser.add_argument('-g', help='number of gpus',
+    parser.add_argument('-g', help='number of gpus(default: 2)',
                         type=int, default=2, dest='num_gpus')
-    parser.add_argument('-l', help='learning rate',
+    parser.add_argument('-l', help='learning rate(default: 0.001)',
                         type=float, default=0.001, dest='lr')
-    parser.add_argument('-be', help='regularization',
-                        type=float, default=0.001, dest='beta')
-
+    parser.add_argument('-d', help='dropout keep probability(default: 1)', dest='dropout',
+                        type=float, default=1)
     args = parser.parse_args()
 
     f_c = args.f_c
     c_c = args.c_c
+    dropout = args.dropout
 
-    path = args.data + '/train-data.hdf5'
-    f1 = h5py.File(path, 'r')
-    path = args.data + '/valid-data.hdf5'
-    f2 = h5py.File(path, 'r')
+    path = args.data + '/train-data'
+    train_data, train_labels = load_data(path)
 
-    # load data
-    train_data = f1['avg_data']
-    train_labels = np.reshape(f1['elecenergy'], [-1, 1])
-    valid_data = f2['avg_data']
-    valid_labels = np.reshape(f2['elecenergy'], [-1, 1])
+    path = args.data + '/valid-data'
+    valid_data, valid_labels = load_data(path)
 
     # train model
     epochs, losses_tra, losses_val = build_model(args.L, args.f_c, args.c_c,
                         train_data, train_labels, valid_data, valid_labels,
-                        args.save, args.summary, args.BATCH, args.EPOCH,
-                        args.report, args.num_gpus, args.lr, args.beta)
+                        args.save, args.BATCH, args.EPOCHS,
+                        args.report, args.num_gpus, args.lr)
 
     # save losses
     loss_f = h5py.File('coarse_losses.hdf5', 'w')
