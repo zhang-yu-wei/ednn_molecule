@@ -19,16 +19,8 @@ This file is used to train finer model
 
 def NN_finer(_in):
     tile_size = 6
-    inputs = []
-    for tile in _in:
-        if tf.count_nonzero(tile) ==0:
-           continue
-        else:
-           inputs.append(tile)
-    inputs = tf.reshape(inputs, (-1, tile_size**2))
-    #_in = tf.reshape(_in, (-1, tile_size**2))
+    _in = tf.reshape(_in, (-1, tile_size**2))
     nn = tf.contrib.layers.fully_connected(_in, 32, reuse=False, scope='ful1')
-    nn = tf.contrib.layers.fully_connected(inputs, 32, reuse=False, scope='ful1')
     nn = tf.contrib.layers.fully_connected(nn, 64, reuse=False, scope='ful2')
     nn = tf.contrib.layers.fully_connected(nn, 1, activation_fn=None, reuse=False,
                                            scope='ful3')
